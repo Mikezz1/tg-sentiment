@@ -1,5 +1,7 @@
 import gc
 import numpy as np
+import pandas as pd
+import wandb
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -32,3 +34,12 @@ def cleanup():
 def calc_accuracy(pred_logits, true_labels):
     pred_labels = F.softmax(pred_logits, dim=1).argmax(dim=1)
     return accuracy_score(pred_labels, true_labels)
+
+
+def get_labels(logits):
+    softmax = F.softmax(logits, dim=1)
+    float_predict = softmax@torch.tensor([0, 1, -1]).numpy()
+    int_predict = softmax.argmax(dim=1).numpy()
+    output = pd.DataFrame(
+        {'label_float': float_predict, 'label_int': int_predict})
+    return output

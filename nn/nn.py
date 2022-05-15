@@ -8,6 +8,9 @@ from sklearn.metrics import accuracy_score
 from config import cfg
 import wandb
 import gc
+from utils import *
+
+device = 'cuda'
 
 
 class TextDataset(Dataset):

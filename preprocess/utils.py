@@ -67,21 +67,21 @@ class Preprocessor:
     def __init__(self, df):
         self.df = df.copy()
 
-    def clean_text(self):
+    def clean_text(self, df):
         """
         Function to remove all special symbols
         """
-        self.df.message = self.df.message.apply(str)
-        self.df.loc[:, 'message'] = self.df.loc[:, 'message']\
+        df.message = self.df.message.apply(str)
+        df.loc[:, 'message'] = df.loc[:, 'message']\
             .apply(self._remove_emojis)\
             .apply(self._remove_tags)\
             .apply(self._remove_spaces)\
             .apply(self._remove_links)
 
-        if 'Unnamed: 0' in self.df.columns:
-            self.df = self.df.rename(columns={'Unnamed: 0': 'idx'})
+        if 'Unnamed: 0' in df.columns:
+            df = df.rename(columns={'Unnamed: 0': 'idx'})
 
-        return self.df
+        return df
 
     @staticmethod
     def _remove_emojis(text):
@@ -253,7 +253,7 @@ class TelegramPreprocessor(Preprocessor):
         self.df = self.df.merge(all_tickers, on='idx', how='left')
         self.df.loc[:, 'entities'] = self.df.loc[:, 'entities'] \
             .apply(lambda a: '_'.join(a))
-        return self.df
+        self.df = self.df[self.df.tickers != ' '].dropna()
 
     def _exclude_channels(self, channels=None):
         return self.df.loc[~self.df.channels.isin(channels), :]
@@ -265,14 +265,14 @@ class TelegramPreprocessor(Preprocessor):
         return result
 
     def transform(self):
-        self.df = self.clean_text()
-        return self._filter_mentions_count(
-            self._add_ticker_column(self._extract_tickers()))
+        self.df = self.clean_text(self.df)
+        self._add_ticker_column(self._extract_tickers())
+        return self._filter_mentions_count()
 
 
 class MarketTwitsPreprocessor(Preprocessor):
     def __init__(self, df):
-        self.df = df.copy()
+        self.df = df.copy().dropna()
         self.pos1 = u"\U0001F4A5"
         self.neg1 = u"\u26A0"
         self.neut1 = u"\u2757"
@@ -293,12 +293,13 @@ class MarketTwitsPreprocessor(Preprocessor):
         positive.loc[:, 'label'] = 1
         neutral.loc[:, 'label'] = 0
         negative.loc[:, 'label'] = -1
-        return pd.concat([positive, neutral, negative])
+
+        self.df = pd.concat([positive, neutral, negative])
 
     def find_mentions(self, tickers, tags):
         entities = tickers + tags
         entities = [a.lower() for a in entities]
-        data_tickers = self.df[self.df['message'].str.lower().contains(
+        data_tickers = self.df[self.df['message'].str.lower().str.contains(
             '|'.join(entities))]
         return data_tickers
 
@@ -313,4 +314,5 @@ class MarketTwitsPreprocessor(Preprocessor):
         other = ['#спг', '#отчетности',
                  '#отчетность', '#газ', '#золото', '#РТС']
 
-        return self.find_mentions(self.get_labelled_items())
+        self.get_labelled_items()
+        return self.find_mentions(tickers, other)
